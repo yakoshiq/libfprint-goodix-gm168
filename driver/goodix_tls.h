@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+#pragma once
+
+#include "goodix_proto.h"
+#include <glib.h>
+#include <openssl/ssl.h>
+#include <pthread.h> /* for pthread_t */
+
+typedef struct _GoodixGM168TlsServer GoodixGM168TlsServer;
+
+typedef void (*GoodixGM168TlsConnectedCb)(GoodixGM168TlsServer *self,
+                                           GError               *error,
+                                           gpointer              user_data);
+
+struct _GoodixGM168TlsServer {
+    /* Callbacks */
+    GoodixGM168TlsConnectedCb on_connected; /* called on handshake complete or error */
+    gpointer                   user_data;
+
+    /* OpenSSL */
+    SSL_CTX  *ctx;
+    SSL      *ssl;
+
+    /*
+     * Transport: socketpair(AF_UNIX, SOCK_STREAM)
+     *
+     *   sock_fd   -- passed to SSL_set_fd; the SSL thread reads/writes here
+     *   client_fd -- driver uses: write() = feed MCU data in,
+     *                             read()  = pull handshake response out
+     *
+     * Thread-safety rationale (no mutex needed):
+     *   - During SSL_accept: SSL thread owns sock_fd; driver owns client_fd.
+     *     These are different fds -- POSIX kernel buffers guarantee safe
+     *     concurrent read/write on opposite ends of a socketpair.
+     *   - After SSL_accept: tls_serve_thread exits.  SSL_read / SSL_write
+     *     are called exclusively from the GLib main loop (single-threaded).
+     */
+    int sock_fd;
+    int client_fd;
+
+    /* The context is captured by init; handshake completion is dispatched
+     * there and never directly from the OpenSSL worker. */
+    GMainContext *owner_context;
+    GSource      *completion_source;
+
+    /* Protects cancellation, completion scheduling and descriptor teardown. */
+    GMutex state_lock;
+    gboolean sync_initialized;
+    gboolean thread_started;
+    gboolean cancel_requested;
+    gboolean completion_queued;
+    gboolean completion_delivered;
+
+    /* Bytes accepted from USB but not yet written into the nonblocking
+     * socketpair. Only the owner context accesses this queue. */
+    GByteArray *feed_pending;
+    gsize       feed_offset;
+
+    /* Server thread handle (joined in deinit). */
+    pthread_t thread;
+};
+
+// Initialize TLS server. Starts the handshake-wait thread.
+// on_connected is called when the handshake completes (error=NULL) or fails (error!=NULL).
+gboolean goodix_gm168_tls_init    (GoodixGM168TlsServer *self, GError **error);
+
+// Feed raw TLS bytes from the MCU (from a B0 packet) into OpenSSL.
+int      goodix_gm168_tls_feed    (GoodixGM168TlsServer *self, const guint8 *data,
+                                    guint32 length);
+
+// Pull TLS bytes that OpenSSL wants to send to the MCU (wrap in B0 and send).
+int      goodix_gm168_tls_pull    (GoodixGM168TlsServer *self, guint8 *buf,
+                                    guint16 size);
+
+// Read decrypted data from the MCU (after handshake completes).
+int      goodix_gm168_tls_recv    (GoodixGM168TlsServer *self, guint8 *buf,
+                                    guint32 size, GError **error);
+
+// Encrypt and send data to the MCU.
+int      goodix_gm168_tls_send    (GoodixGM168TlsServer *self, const guint8 *data,
+                                    guint16 length);
+
+// G9: Cancel any in-flight handshake/recv. Idempotent. Safe to call from any
+// thread. After this returns, the serve thread will exit promptly and
+// goodix_gm168_tls_deinit can finish without blocking.
+void     goodix_gm168_tls_cancel  (GoodixGM168TlsServer *self);
+
+// Tear down TLS state and join the serve thread.
+void     goodix_gm168_tls_deinit  (GoodixGM168TlsServer *self);

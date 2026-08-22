@@ -1,0 +1,49 @@
+diff --git a/libfprint/meson.build b/libfprint/meson.build
+--- a/libfprint/meson.build
++++ b/libfprint/meson.build
+@@ -134,6 +134,12 @@ driver_sources = {
+         'drivers/goodixmoc/goodix.c',
+         'drivers/goodixmoc/goodix_proto.c',
+     ),
++    'goodix_gm168' : files(
++        'drivers/goodix_gm168/goodix_gm168.c',
++        'drivers/goodix_gm168/goodix_proto.c',
++        'drivers/goodix_gm168/goodix_tls.c',
++        'drivers/goodix_gm168/gm168_log.c',
++    ),
+     'fpcmoc' : files('drivers/fpcmoc/fpc.c'),
+     'realtek' : files('drivers/realtek/realtek.c'),
+     'focaltech_moc' : files('drivers/focaltech_moc/focaltech_moc.c'),
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -141,6 +141,7 @@ drivers_info = {
+     'upeksonly': {},
+     'upekts': {},
+     'goodixmoc': {},
++    'goodix_gm168': { 'endian_dependent': true, 'helper': ['openssl'] },
+     'nb1010': {},
+     'fpcmoc': {},
+     'realtek': {},
+diff --git a/libfprint/fprint-list-udev-hwdb.c b/libfprint/fprint-list-udev-hwdb.c
+--- a/libfprint/fprint-list-udev-hwdb.c
++++ b/libfprint/fprint-list-udev-hwdb.c
+@@ -182,6 +182,5 @@ static const FpIdEntry whitelist_id_table[] = {
+   { .vid = 0x27c6, .pid = 0x5740 },
+   { .vid = 0x27c6, .pid = 0x581a },
+-  { .vid = 0x27c6, .pid = 0x589a },
+   { .vid = 0x27c6, .pid = 0x5e0a },
+   { .vid = 0x27c6, .pid = 0x5f10 },
+   { .vid = 0x27c6, .pid = 0x5f91 },
+diff --git a/tests/meson.build b/tests/meson.build
+--- a/tests/meson.build
++++ b/tests/meson.build
+@@ -292,7 +292,7 @@ else
+         args: ['-c', 'exit 77']
+     )
+ 
+-    foreach driver_test: drivers_tests
++    foreach driver_test, driver_env: drivers_tests
+         test(driver_test,
+             sh,
+             args: ['-c', 'exit 77']

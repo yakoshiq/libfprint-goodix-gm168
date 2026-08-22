@@ -1,0 +1,28 @@
+Goodix GM168 Linux driver provenance
+====================================
+
+This repository contains an experimental libfprint driver for USB device
+27c6:589a. The implementation is licensed under LGPL-2.1-or-later.
+
+Upstream base
+-------------
+libfprint v1.94.100, commit 80a4b5ec612892c5c056c48dddaa561452cf37ec
+https://gitlab.freedesktop.org/libfprint/libfprint
+
+Driver lineage
+--------------
+The starting implementation was published at:
+https://github.com/mrcook1e-ai/goodix-gm168
+commit 7f7e3710bd6405b6bc238cf85fecb74e61b4d0da
+
+Parts of the Goodix transport/TLS implementation derive from the
+55b4-experimental libfprint work by Alexander Meiler, Matthieu Charette,
+and Alireza S.N., also licensed under LGPL-2.1-or-later.
+
+The 27c6:589a protocol and image-processing path were independently studied
+from USB traffic and behavior of the lawfully installed Windows driver. No
+Goodix or Microsoft executable, firmware, VM image, private key, per-device
+calibration file, biometric sample, or packet capture is distributed here.
+
+Subsequent 27c6:589a hardware validation and fixes were performed by Daniil
+Yakoshinov in 2026.

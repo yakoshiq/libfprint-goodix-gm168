@@ -1,0 +1,70 @@
+# Build output
+build/
+_build/
+pkg/
+*.o
+*.so
+*.a
+*.pkg.tar.*
+
+# Per-device secrets and calibration
+*.bin
+*.dat
+sealed.*
+psk.*
+calib_*
+cal_scale*
+fdt_thresholds*
+
+# Biometric and protocol captures
+*.pgm
+*.ppm
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.pcap
+*.pcapng
+*.cap
+*.usbmon
+*.variant
+*.etl
+*.zip
+*.7z
+*.rar
+
+# Virtual machines and installation media
+*.qcow2
+*.vmdk
+*.vdi
+*.vhd
+*.vhdx
+*.img
+*.ova
+*.ovf
+*.iso
+*.wim
+*.fd
+*.bndb
+
+# Proprietary vendor binaries and private keys
+*.dll
+*.exe
+*.sys
+*.cat
+*.pem
+*.key
+*.der
+
+# Runtime logs and local state
+*.log
+probe-state/
+probe-logs*/
+.goodix-gm168/
+__pycache__/
+*.pyc
+
+# Editor and OS state
+.vscode/
+.idea/
+.DS_Store
