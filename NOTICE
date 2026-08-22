@@ -11,9 +11,16 @@ https://gitlab.freedesktop.org/libfprint/libfprint
 
 Driver lineage
 --------------
-The starting implementation was published at:
+The current driver is a direct, substantially modified descendant of:
 https://github.com/mrcook1e-ai/goodix-gm168
 commit 7f7e3710bd6405b6bc238cf85fecb74e61b4d0da
+
+That repository supplied the initial GM168 USB protocol, TLS-PSK transport,
+asynchronous libfprint state machines, image-processing pipeline, and build
+integration. Several protocol/support files remain verbatim or near-verbatim;
+the core state machines and TLS implementation were subsequently extended and
+hardened. Credit is due to repository owner mrcook1e-ai (Oleg), contributor
+wseng, and the AI co-authorship disclosed in that repository's commit history.
 
 Parts of the Goodix transport/TLS implementation derive from the
 55b4-experimental libfprint work by Alexander Meiler, Matthieu Charette,

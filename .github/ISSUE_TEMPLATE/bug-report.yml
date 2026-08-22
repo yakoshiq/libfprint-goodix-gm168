@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible driver or integration problem
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is an experimental community developer preview. Do not attach PSKs, calibration files, fingerprint images/templates, packet captures, VM images, Windows driver files, or unredacted logs.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I removed per-device secrets, biometric data, calibration data, packet contents, serial numbers, and other private information.
+          required: true
+        - label: I understand that this project is provided as is and is not an official Goodix or libfprint release.
+          required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: Laptop model and USB VID:PID. Redact serial numbers.
+      placeholder: Redmi Book Pro 15 2022; 27c6:589a
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Distribution, kernel, libfprint version, and relevant package version.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: What happened, including the exact user-visible error.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps that reproduce the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted diagnostics
+      description: Paste only the minimal, manually reviewed text needed to diagnose the issue. Never upload raw capture files.
+      render: shell

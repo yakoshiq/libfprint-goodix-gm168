@@ -143,5 +143,23 @@ See `docs/RELEASE-READINESS.md`.
 
 LGPL-2.1-or-later. See `LICENSE` and `NOTICE`.
 
+This is not an independent from-scratch implementation. It is a direct,
+substantially modified descendant of
+[`mrcook1e-ai/goodix-gm168`](https://github.com/mrcook1e-ai/goodix-gm168),
+starting from commit
+[`7f7e3710`](https://github.com/mrcook1e-ai/goodix-gm168/commit/7f7e3710bd6405b6bc238cf85fecb74e61b4d0da).
+That project provided the initial GM168 USB protocol implementation, TLS-PSK
+transport, asynchronous libfprint state machines, image-processing pipeline,
+and build integration. Some protocol/support files remain nearly or completely
+derived from it; the core driver and TLS implementation were subsequently
+extended and hardened for the hardware validation documented here.
+
+Credit belongs to the original repository maintainers and contributors,
+including `mrcook1e-ai` (Oleg) and the GitHub contributor `wseng`, as well as
+the earlier LGPL-licensed Goodix/libfprint work named in `NOTICE`. The original
+repository also discloses AI co-authorship in part of its history. This
+repository's separate AI-assistance disclosure appears near the top of this
+README.
+
 No Windows driver binary, firmware, VM image, per-device secret, biometric
 sample, calibration dump, or packet capture is included.
