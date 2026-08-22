@@ -29,9 +29,11 @@ Logs are created privately but must still be treated as sensitive.
 
 ## Reporting vulnerabilities
 
-Until a dedicated private disclosure address exists, do not open a public issue
-containing exploit details or device secrets. Contact the repository owner
-privately first and provide only a minimal, redacted description.
+Use GitHub's private
+[security-advisory form](https://github.com/yakoshiq/libfprint-goodix-gm168/security/advisories/new)
+for vulnerability reports. Do not open a public issue containing exploit
+details, device secrets, biometric data, or unredacted diagnostics. Start with
+the minimum redacted information needed to establish impact and reproduction.
 
 ## Scope warning
 
