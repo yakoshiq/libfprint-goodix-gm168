@@ -1,4 +1,4 @@
-# Goodix GM168 (`27c6:589a`) for Linux
+# libfprint-goodix-gm168
 
 Experimental libfprint image driver for the Goodix GM168SEC fingerprint reader
 used in the Redmi Book Pro 15 2022.
@@ -6,6 +6,19 @@ used in the Redmi Book Pro 15 2022.
 ## Status
 
 **Community developer preview — not upstream-ready.**
+
+## AI-assisted development and “as is” notice
+
+Most of the reverse engineering, implementation, debugging, code review, and
+documentation in this repository was performed with AI coding agents under
+human direction. The result was tested on one physical device, but it has not
+received a complete independent human security or correctness audit.
+
+The project is provided **“as is”, without warranty of any kind**. Hardware
+validation does not guarantee correctness, security, compatibility with another
+sensor, or protection against data loss. Review the source and understand the
+per-device secret and biometric-data handling before using it. The applicable
+license terms and warranty disclaimer are in `LICENSE`.
 
 Validated on one physical `27c6:589a` device with firmware
 `GF3206_GM168SEC_APP_10008`:
