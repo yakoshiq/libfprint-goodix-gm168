@@ -24,6 +24,7 @@
 #include <glib/gstdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 /* CLAHE tiling for 64x80 frames: 4x5 grid of 16x16 contextual regions.
  * Clip limit is the max bin population (out of TILE_PX=256) before
@@ -163,6 +164,7 @@ struct _FpDeviceGoodixGm168 {
      * calib_windows.dat; cal2 is the final runtime CAL_SCALE capture. */
     guint16 *cal1;
     guint16 *cal2;
+    guint8 sensor_params[256];
     /* Per-pixel accumulator used during multi-frame BG averaging. Sized
      * GM168_FRAME_PIXELS, freed once `background` is computed.            */
     guint32 *background_sum;
@@ -336,6 +338,97 @@ gm168_read_le16 (const guint8 *data)
 
     memcpy (&value, data, sizeof (value));
     return GUINT16_FROM_LE (value);
+}
+
+/* Optional per-device SET_PARAM captured from the official driver. The
+ * protocol table contains mode-specific register values, not fingerprints.
+ * Keep unit calibration out of the driver binary and reject damaged tables
+ * before issuing any device command. */
+static gboolean
+gm168_load_sensor_params (struct _FpDeviceGoodixGm168 *self, GError **error)
+{
+  g_autofree char *dir = gm168_psk_dir ();
+  guint8 data[257];
+  struct stat st;
+  int dirfd, fd;
+  gsize length = 0;
+  guint32 checksum = 0xa5a5;
+
+  g_assert (goodix_gm168_set_param_len == sizeof (self->sensor_params));
+  memcpy (self->sensor_params, goodix_gm168_set_param,
+          sizeof (self->sensor_params));
+  dirfd = open (dir, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (dirfd < 0)
+    {
+      if (errno == ENOENT)
+        return TRUE;
+      g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
+                   "Cannot open sensor configuration directory: %s",
+                   g_strerror (errno));
+      return FALSE;
+    }
+  fd = openat (dirfd, "sensor-register-map.bin",
+               O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+  if (fd < 0)
+    {
+      int saved_errno = errno;
+      close (dirfd);
+      if (saved_errno == ENOENT)
+        return TRUE;
+      g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (saved_errno),
+                   "Cannot open sensor configuration: %s",
+                   g_strerror (saved_errno));
+      return FALSE;
+    }
+  if (fstat (dirfd, &st) || !S_ISDIR (st.st_mode) ||
+      st.st_uid != geteuid () || (st.st_mode & 0077) ||
+      fstat (fd, &st) || !S_ISREG (st.st_mode) ||
+      st.st_uid != geteuid () || (st.st_mode & 0077))
+    {
+      close (fd);
+      close (dirfd);
+      g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_ACCES,
+                           "Sensor configuration must be owned privately by the service user");
+      return FALSE;
+    }
+  close (dirfd);
+  while (length < sizeof (data))
+    {
+      ssize_t count = read (fd, data + length, sizeof (data) - length);
+      if (count < 0 && errno == EINTR)
+        continue;
+      if (count < 0)
+        {
+          int saved_errno = errno;
+          close (fd);
+          g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (saved_errno),
+                       "Cannot read sensor configuration: %s",
+                       g_strerror (saved_errno));
+          return FALSE;
+        }
+      if (!count)
+        break;
+      length += count;
+    }
+  close (fd);
+  if (length != sizeof (self->sensor_params) ||
+      memcmp (data, goodix_gm168_set_param, 16) != 0)
+    {
+      g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
+                           "Unsupported sensor configuration size or mode header");
+      return FALSE;
+    }
+  for (guint i = 0; i < length; i += 2)
+    checksum += gm168_read_le16 (data + i);
+  if (checksum & 0xffff)
+    {
+      g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
+                           "Sensor configuration checksum failed");
+      return FALSE;
+    }
+  memcpy (self->sensor_params, data, sizeof (self->sensor_params));
+  fp_dbg ("goodix-gm168: per-device sensor configuration loaded");
+  return TRUE;
 }
 
 /* Load the per-device Windows calibration without ever logging its values.
@@ -1193,6 +1286,7 @@ gm168_action_active (FpDeviceGoodixGm168 *self)
 
     action = fpi_device_get_current_action (FP_DEVICE (self));
     return action == FPI_DEVICE_ACTION_ENROLL ||
+           action == FPI_DEVICE_ACTION_VERIFY ||
            action == FPI_DEVICE_ACTION_IDENTIFY ||
            action == FPI_DEVICE_ACTION_CAPTURE;
 }
@@ -1906,26 +2000,18 @@ init_run_state (FpiSsm *ssm, FpDevice *dev)
         case INIT_SET_PARAM:
             fp_dbg("INIT_SET_PARAM");
             async_send_cmd (ssm, dev, GOODIX_GM168_CMD_SET_PARAM,
-                            goodix_gm168_set_param, goodix_gm168_set_param_len);
+                            self->sensor_params, sizeof (self->sensor_params));
             break;
         case INIT_SET_PARAM_ACK:
             async_recv_ack (ssm, dev, GM168_USB_RX_TIMEOUT_MS);
             break;
         case INIT_DEL_TMPL_1:
-            fp_dbg("INIT_DEL_TMPL_1");
-            async_send_cmd (ssm, dev, GOODIX_GM168_CMD_DEL_TMPL,
-                            goodix_gm168_del_tmpl, goodix_gm168_del_tmpl_len);
-            break;
         case INIT_DEL_TMPL_1_ACK:
-            async_recv_ack (ssm, dev, GM168_USB_RX_TIMEOUT_MS);
-            break;
         case INIT_DEL_TMPL_2:
-            fp_dbg("INIT_DEL_TMPL_2");
-            async_send_cmd (ssm, dev, GOODIX_GM168_CMD_DEL_TMPL,
-                            goodix_gm168_del_tmpl, goodix_gm168_del_tmpl_len);
-            break;
         case INIT_DEL_TMPL_2_ACK:
-            async_recv_ack (ssm, dev, GM168_USB_RX_TIMEOUT_MS);
+            /* Preserve the reader's existing Windows enrollment. Host-side
+             * image capture does not authorize deleting MCU template slots. */
+            fpi_ssm_jump_to_state (ssm, INIT_SESSION);
             break;
 
         case INIT_SESSION:
@@ -2580,7 +2666,7 @@ capture_completed (FpiSsm *ssm, FpDevice *dev, GError *error)
          *   - attempt count reached the cap, or
          *   - wall-clock budget exhausted.
          * Otherwise re-arm fast and capture another frame. */
-        gfloat   now_us  = g_get_monotonic_time ();
+        gint64   now_us  = g_get_monotonic_time ();
         gint64   elapsed = (now_us - self->capture_start_us) / 1000; /* ms */
         self->capture_attempt++;
 
@@ -3639,9 +3725,13 @@ static void dev_change_state (FpImageDevice *dev, FpiImageDeviceState state)
 static void dev_open (FpImageDevice *dev)
 {
     FpDeviceGoodixGm168 *self = FPI_DEVICE_GOODIX_GM168 (dev);
-    gm168_log_open (&self->log);
-
     GError *error = NULL;
+
+    if (!gm168_load_sensor_params (self, &error)) {
+        fpi_image_device_open_complete (dev, error);
+        return;
+    }
+    gm168_log_open (&self->log);
     g_usb_device_claim_interface (
         fpi_device_get_usb_device (FP_DEVICE (dev)), 0, 0, &error);
     fpi_image_device_open_complete (dev, error);
